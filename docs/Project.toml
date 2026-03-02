@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+PenguinBCs = "9a5f4c72-2b90-4b4f-93d2-7b2c8e4d1f30"
+
+[compat]
+Documenter = "1"

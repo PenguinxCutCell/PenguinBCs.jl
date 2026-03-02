@@ -1,0 +1,159 @@
+module PenguinBCs
+
+using StaticArrays
+
+export AbstractBoundary, Dirichlet, Neumann, Robin, Periodic, BorderConditions, validate_borderconditions!
+export AbstractInterfaceBC, ScalarJump, FluxJump, RobinJump, InterfaceConditions
+export eval_bc
+
+"""
+Abstract supertype for boundary conditions on the domain boundary.
+"""
+abstract type AbstractBoundary end
+
+"""
+Dirichlet boundary condition `u = value`.
+"""
+struct Dirichlet <: AbstractBoundary
+    value::Union{Function,Float64}
+end
+
+"""
+Neumann boundary condition `∂ₙu = value`.
+"""
+struct Neumann <: AbstractBoundary
+    value::Union{Function,Float64}
+end
+
+"""
+Robin boundary condition `α*u + β*∂ₙu = value`.
+"""
+struct Robin <: AbstractBoundary
+    α::Union{Function,Float64}
+    β::Union{Function,Float64}
+    value::Union{Function,Float64}
+end
+
+"""
+Periodic boundary marker.
+"""
+struct Periodic <: AbstractBoundary end
+
+"""
+Container for boundary conditions indexed by side symbols.
+"""
+struct BorderConditions
+    borders::Dict{Symbol,AbstractBoundary}
+end
+
+"""
+Construct [`BorderConditions`](@ref) from keyword pairs such as
+`left=Dirichlet(0.0), right=Neumann(1.0)`.
+"""
+function BorderConditions(; kwargs...)
+    d = Dict{Symbol,AbstractBoundary}()
+    for (k, v) in kwargs
+        v isa AbstractBoundary || throw(ArgumentError("border `$k` must be an AbstractBoundary"))
+        d[Symbol(k)] = v
+    end
+    return BorderConditions(d)
+end
+
+function _side_pairs(N::Int)
+    if N == 1
+        return ((:left, :right),)
+    elseif N == 2
+        return ((:left, :right), (:bottom, :top))
+    elseif N == 3
+        return ((:left, :right), (:bottom, :top), (:backward, :forward))
+    end
+    throw(ArgumentError("unsupported dimension N=$N; expected 1, 2, or 3"))
+end
+
+"""
+Validate periodic side pairing for [`BorderConditions`](@ref) in dimension `N`.
+
+Supported dimensions are `1`, `2`, and `3`. Opposite sides must both be periodic
+or both non-periodic.
+"""
+function validate_borderconditions!(bc::BorderConditions, N)
+    pairs = _side_pairs(N)
+    for (lo, hi) in pairs
+        blo = get(bc.borders, lo, nothing)
+        bhi = get(bc.borders, hi, nothing)
+        plo = blo isa Periodic
+        phi = bhi isa Periodic
+        if xor(plo, phi)
+            throw(ArgumentError("periodic boundaries must be paired: both `$lo` and `$hi` must be Periodic"))
+        end
+    end
+    return bc
+end
+
+"""
+Abstract supertype for interface conditions across an internal interface.
+"""
+abstract type AbstractInterfaceBC end
+
+"""
+Scalar jump condition `α₁*u₁ - α₂*u₂ = value`.
+"""
+struct ScalarJump <: AbstractInterfaceBC
+    α₁::Union{Function,Float64}
+    α₂::Union{Function,Float64}
+    value::Union{Function,Float64}
+end
+
+"""
+Flux jump condition `β₁*∂ₙu₁ - β₂*∂ₙu₂ = value`.
+"""
+struct FluxJump <: AbstractInterfaceBC
+    β₁::Union{Function,Float64}
+    β₂::Union{Function,Float64}
+    value::Union{Function,Float64}
+end
+
+"""
+Robin-type jump condition `α*[u] + β*[∂ₙu] = value`.
+"""
+struct RobinJump <: AbstractInterfaceBC
+    α::Union{Function,Float64}
+    β::Union{Function,Float64}
+    value::Union{Function,Float64}
+end
+
+"""
+Container for scalar and flux interface conditions.
+"""
+struct InterfaceConditions
+    scalar::Union{Nothing,AbstractInterfaceBC}
+    flux::Union{Nothing,AbstractInterfaceBC}
+end
+
+"""
+Construct [`InterfaceConditions`](@ref) from optional `scalar` and `flux` entries.
+"""
+InterfaceConditions(; scalar=nothing, flux=nothing) = InterfaceConditions(scalar, flux)
+
+"""
+Evaluate a boundary/interface value at spatial point `x` and time `t`.
+
+`v` may be:
+- `Float64` (returned directly),
+- a callback `(x...)`,
+- or a callback `(x..., t)`.
+"""
+eval_bc(v::Float64, x::SVector, t) = v
+
+function eval_bc(v::Function, x::SVector, t)
+    if applicable(v, x..., t)
+        return Float64(v(x..., t))
+    elseif applicable(v, x...)
+        return Float64(v(x...))
+    end
+    throw(ArgumentError("boundary callback must accept (x...) or (x..., t)"))
+end
+
+eval_bc(v, x::SVector, t) = eval_bc(Float64(v), x, t)
+
+end
