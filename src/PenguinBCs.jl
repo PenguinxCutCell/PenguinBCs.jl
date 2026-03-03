@@ -2,7 +2,7 @@ module PenguinBCs
 
 using StaticArrays
 
-export AbstractBoundary, Dirichlet, Neumann, Robin, Periodic, BorderConditions, validate_borderconditions!
+export AbstractBoundary, Dirichlet, Neumann, Robin, Periodic, Inflow, Outflow, BorderConditions, validate_borderconditions!
 export AbstractInterfaceBC, ScalarJump, FluxJump, RobinJump, InterfaceConditions
 export eval_bc
 
@@ -40,11 +40,27 @@ Periodic boundary marker.
 struct Periodic <: AbstractBoundary end
 
 """
+Advection inflow boundary condition `u⋅n < 0`: impose transported scalar value.
+"""
+struct Inflow{T} <: AbstractBoundary
+    value::T
+end
+
+"""
+Advection outflow boundary marker `u⋅n ≥ 0`: no imposed scalar data.
+"""
+struct Outflow{T} <: AbstractBoundary end
+Outflow(::Type{T}) where {T} = Outflow{T}()
+Outflow() = Outflow{Float64}()
+
+"""
 Container for boundary conditions indexed by side symbols.
 """
 struct BorderConditions
     borders::Dict{Symbol,AbstractBoundary}
 end
+
+
 
 """
 Construct [`BorderConditions`](@ref) from keyword pairs such as
@@ -58,6 +74,8 @@ function BorderConditions(; kwargs...)
     end
     return BorderConditions(d)
 end
+
+
 
 function _side_pairs(N::Int)
     if N == 1
@@ -76,19 +94,26 @@ Validate periodic side pairing for [`BorderConditions`](@ref) in dimension `N`.
 Supported dimensions are `1`, `2`, and `3`. Opposite sides must both be periodic
 or both non-periodic.
 """
-function validate_borderconditions!(bc::BorderConditions, N)
+function _validate_periodic_pairing!(borders, N)
     pairs = _side_pairs(N)
     for (lo, hi) in pairs
-        blo = get(bc.borders, lo, nothing)
-        bhi = get(bc.borders, hi, nothing)
+        blo = get(borders, lo, nothing)
+        bhi = get(borders, hi, nothing)
         plo = blo isa Periodic
         phi = bhi isa Periodic
         if xor(plo, phi)
             throw(ArgumentError("periodic boundaries must be paired: both `$lo` and `$hi` must be Periodic"))
         end
     end
+    return nothing
+end
+
+function validate_borderconditions!(bc::BorderConditions, N)
+    _validate_periodic_pairing!(bc.borders, N)
     return bc
 end
+
+
 
 """
 Abstract supertype for interface conditions across an internal interface.
@@ -143,15 +168,20 @@ Evaluate a boundary/interface value at spatial point `x` and time `t`.
 - a callback `(x...)`,
 - or a callback `(x..., t)`.
 """
-eval_bc(v::Float64, x::SVector, t) = v
+eval_bc(v::Real, x::SVector, t) = Float64(v)
+eval_bc(v::Ref, x::SVector, t) = eval_bc(v[], x, t)
+eval_bc(v::AbstractVector, x::SVector, t) = v
 
 function eval_bc(v::Function, x::SVector, t)
+    y = nothing
     if applicable(v, x..., t)
-        return Float64(v(x..., t))
+        y = v(x..., t)
     elseif applicable(v, x...)
-        return Float64(v(x...))
+        y = v(x...)
+    else
+        throw(ArgumentError("boundary callback must accept (x...) or (x..., t)"))
     end
-    throw(ArgumentError("boundary callback must accept (x...) or (x..., t)"))
+    return y isa Real ? Float64(y) : y
 end
 
 eval_bc(v, x::SVector, t) = eval_bc(Float64(v), x, t)

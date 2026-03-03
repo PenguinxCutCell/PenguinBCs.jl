@@ -10,6 +10,17 @@ using PenguinBCs
     @test_throws ArgumentError validate_borderconditions!(bad, 1)
 end
 
+@testset "Inflow/Outflow in BorderConditions" begin
+    bc = BorderConditions(; left=Periodic(), right=Periodic())
+    @test validate_borderconditions!(bc, 1) === bc
+
+    bc2 = BorderConditions(; left=Inflow(1.0), right=Outflow())
+    @test validate_borderconditions!(bc2, 1) === bc2
+
+    bad = BorderConditions(; left=Periodic(), right=Outflow())
+    @test_throws ArgumentError validate_borderconditions!(bad, 1)
+end
+
 @testset "eval_bc" begin
     x = SVector(1.0, 2.0)
     @test eval_bc(3.5, x, 0.1) == 3.5
