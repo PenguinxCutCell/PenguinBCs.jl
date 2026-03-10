@@ -2,7 +2,7 @@ module PenguinBCs
 
 using StaticArrays
 
-export AbstractBoundary, Dirichlet, Neumann, Robin, Periodic, Traction, PressureOutlet, DoNothing, Inflow, Outflow, BorderConditions, validate_borderconditions!
+export AbstractBoundary, Dirichlet, Neumann, Robin, Periodic, Traction, PressureOutlet, DoNothing, Symmetry, Inflow, Outflow, BorderConditions, validate_borderconditions!
 export AbstractInterfaceBC, ScalarJump, FluxJump, RobinJump, InterfaceConditions
 export eval_bc
 
@@ -60,6 +60,15 @@ PressureOutlet() = PressureOutlet(0.0)
 Homogeneous traction boundary condition `σn = 0`.
 """
 struct DoNothing <: AbstractBoundary end
+
+"""
+Symmetry / free-slip boundary condition for vector Stokes solvers.
+
+Interpreted on a boundary with unit normal `n` as:
+    u⋅n = 0
+    (I - n⊗n) σ(u,p) n = 0
+"""
+struct Symmetry <: AbstractBoundary end
 
 """
 Advection inflow boundary condition `u⋅n < 0`: impose transported scalar value.

@@ -43,6 +43,16 @@ end
     @test eval_bc((PressureOutlet()).value, x, 0.0) == 0.0
 end
 
+@testset "Symmetry boundary type" begin
+    bc = BorderConditions(; left=Dirichlet(0.0), right=Symmetry())
+    @test bc.borders[:right] isa Symmetry
+    @test bc.borders[:right] isa AbstractBoundary
+
+    # Periodic validation remains unchanged.
+    bad = BorderConditions(; left=Periodic(), right=Symmetry())
+    @test_throws ArgumentError validate_borderconditions!(bad, 1)
+end
+
 @testset "InterfaceConditions" begin
     ic = InterfaceConditions(
         scalar=ScalarJump(1.0, 2.0, 0.5),
