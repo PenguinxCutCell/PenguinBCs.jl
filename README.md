@@ -63,6 +63,14 @@ Supported interface jump conditions:
 
 `InterfaceConditions(; scalar=nothing, flux=nothing)` groups scalar and flux interface conditions.
 
+## Esoteric BC's/IC's
+
+- `GibbsThomson(capillary; kinetic=0.0)`
+`GibbsThomson(capillary; kinetic=0.0)` stores isotropic Gibbs-Thomson correction terms:
+- `capillary`: curvature coefficient
+- `kinetic`: kinetic velocity coefficient
+- Imposes a modified temperature on the interface from `Robin(1.0, 0.0, Tm)` with `TΓ = Tm - capillary*κΓ - kinetic*VΓ`
+
 ## Equations
 
 A concise mapping to common PDE notation:

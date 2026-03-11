@@ -3,7 +3,7 @@ module PenguinBCs
 using StaticArrays
 
 export AbstractBoundary, Dirichlet, Neumann, Robin, Periodic, Traction, PressureOutlet, DoNothing, Symmetry, Inflow, Outflow, BorderConditions, validate_borderconditions!
-export AbstractInterfaceBC, ScalarJump, FluxJump, RobinJump, InterfaceConditions
+export AbstractInterfaceBC, ScalarJump, FluxJump, RobinJump, GibbsThomson, InterfaceConditions
 export eval_bc
 
 """
@@ -177,6 +177,23 @@ struct RobinJump <: AbstractInterfaceBC
     β::Union{Function,Float64}
     value::Union{Function,Float64}
 end
+
+"""
+Isotropic Gibbs-Thomson thermodynamic correction used by Stefan solvers.
+
+This stores only correction coefficients:
+- `capillary`: curvature coefficient `σ_κ`
+- `kinetic`: kinetic coefficient `μ_Γ`
+
+The complete interface law is applied by Stefan code as:
+`TΓ = Tm - capillary*κΓ - kinetic*VΓ`.
+"""
+struct GibbsThomson <: AbstractInterfaceBC
+    capillary::Union{Function,Float64}
+    kinetic::Union{Function,Float64}
+end
+
+GibbsThomson(capillary; kinetic=0.0) = GibbsThomson(capillary, kinetic)
 
 """
 Container for scalar and flux interface conditions.

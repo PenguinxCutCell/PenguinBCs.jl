@@ -61,3 +61,15 @@ end
     @test ic.scalar isa ScalarJump
     @test ic.flux isa FluxJump
 end
+
+@testset "GibbsThomson construction and eval" begin
+    gt = GibbsThomson(0.25; kinetic=0.05)
+    @test gt.capillary == 0.25
+    @test gt.kinetic == 0.05
+
+    gt_cb = GibbsThomson((x, y, t) -> 0.1 + x; kinetic=(x, y, t) -> 0.02 + t)
+    x = SVector(0.3, 0.7)
+    t = 0.4
+    @test eval_bc(gt_cb.capillary, x, t) ≈ 0.4
+    @test eval_bc(gt_cb.kinetic, x, t) ≈ 0.42
+end
